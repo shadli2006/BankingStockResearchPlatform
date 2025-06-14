@@ -127,3 +127,52 @@ def combine_quarterly_daily(quarterly_df, daily_df, features):
                 combined_data.append(new_row)
     
     return pd.DataFrame(combined_data) if combined_data else pd.DataFrame()
+
+
+    st.subheader("Analisis Regresi Linier (Data Aktual)")
+    
+    # Persiapkan data
+    X = df[features]
+    y = df[target]
+    
+    # Tambahkan konstanta
+    X = sm.add_constant(X)
+    
+    # Hilangkan missing values
+    data = X.join(y).dropna()
+    if len(data) < 2:
+        st.warning("⚠️ Tidak cukup data untuk analisis regresi")
+        return
+    
+    # Lakukan regresi
+    model = sm.OLS(data[target], data[X.columns])
+    results = model.fit()
+    
+    # Buat tabel hasil
+    regression_data = {
+        'Variables': ['Constant'] + features,
+        'Coefficient': results.params.values,
+        'Standard error': results.bse.values,
+        't statistic': results.tvalues.values,
+        'Probability Value': results.pvalues.values
+    }
+    
+    regression_df = pd.DataFrame(regression_data)
+    st.table(regression_df)
+    
+    # Tampilkan R-squared
+    col1, col2 = st.columns(2)
+    col1.metric("R squared", f"{results.rsquared:.4f}")
+    col2.metric("Adjusted R squared", f"{results.rsquared_adj:.4f}")
+    
+    # Interpretasi hasil
+    st.subheader("Interpretasi Hasil")
+    for i, feature in enumerate(['Constant'] + features):
+        p_value = results.pvalues.values[i]
+        coef = results.params.values[i]
+        
+        if p_value < 0.05:
+            sign = "positif" if coef > 0 else "negatif"
+            st.write(f"✅ **{feature}**: Berpengaruh {sign} signifikan terhadap harga saham (p={p_value:.4f})")
+        else:
+            st.write(f"❌ **{feature}**: Tidak berpengaruh signifikan terhadap harga saham (p={p_value:.4f})")    

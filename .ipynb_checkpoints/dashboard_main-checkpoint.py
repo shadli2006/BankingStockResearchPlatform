@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
+import seaborn as sns
 import matplotlib.pyplot as plt
 from modules.data_loader import load_and_preprocess_data, combine_quarterly_daily
 from modules.financial_analysis import analyze_financial_impact
@@ -83,12 +84,33 @@ if quarterly_files and daily_files:
         
         # 1. Analisis Pengaruh Rasio Keuangan
         st.header("📈 Analisis Pengaruh Rasio Keuangan")
-        analyze_financial_impact(df, selected_features, TARGET)
+        analyze_financial_impact(df, selected_features, TARGET) 
+        
+
+        
         
         # Hitung kesehatan bank
         quarterly_df = calculate_health_score(quarterly_df, health_thresholds)
         health_status = quarterly_df.groupby('Bank')['HealthStatus'].last()
-        
+        # 1. Analisis Pengaruh Rasio Keuangan
+        st.header("🔍 Analisis Eksplorasi Data")
+        with st.expander("Distribusi Variabel"):
+            selected_var = st.selectbox("Pilih variabel untuk dilihat distribusinya",
+                                    selected_features + [TARGET])
+        fig, ax = plt.subplots()
+        sns.histplot(df[selected_var], kde=True, ax=ax)
+        st.pyplot(fig)
+
+        with st.expander("Scatter Plot Hubungan Variabel"):
+            col1, col2 = st.columns(2)
+        with col1:
+            x_var = st.selectbox("Variabel X", selected_features)
+        with col2:
+            y_var = st.selectbox("Variabel Y", [TARGET] + selected_features)
+    
+        fig, ax = plt.subplots()
+        sns.scatterplot(data=df, x=x_var, y=y_var, hue='Bank', ax=ax)
+        st.pyplot(fig)
         # 2. Prediksi Harga Saham
         st.header("🤖 Prediksi Harga Saham (Random Forest)")
         results = train_and_predict_rf(df, selected_features, TARGET)

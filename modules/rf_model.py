@@ -7,6 +7,7 @@ from sklearn.preprocessing import StandardScaler
 import matplotlib.pyplot as plt
 from sklearn.metrics import mean_squared_error, r2_score
 from sklearn.linear_model import LinearRegression
+from sklearn.impute import SimpleImputer
 
 def train_and_predict_rf(df, features, target):
     """Latih model RF dan lakukan prediksi"""
@@ -14,10 +15,18 @@ def train_and_predict_rf(df, features, target):
         st.warning("⚠️ Tidak ada data yang cukup untuk pelatihan model")
         return pd.DataFrame()
     
+    # Bersihkan data secara global
+    df_clean = df.copy()
+    for col in features + [target]:
+        # Ganti Inf dengan NaN
+        df_clean[col] = df_clean[col].replace([np.inf, -np.inf], np.nan)
+        # Drop baris dengan NaN
+        df_clean = df_clean.dropna(subset=[col])
+    
+    df = df_clean
+    
     results = []
     all_importances = []
-    
-    # Evaluasi model
     evaluation_results = []
     
     for bank in df['Bank'].unique():
@@ -25,8 +34,18 @@ def train_and_predict_rf(df, features, target):
         if len(bank_df) < 10:
             continue
             
-        X = bank_df[features].values
-        y = bank_df[target].values
+        # Bersihkan data per bank
+        bank_df_clean = bank_df.dropna(subset=features + [target])
+        if len(bank_df_clean) < 10:
+            st.warning(f"⚠️ Bank {bank} tidak memiliki cukup data setelah pembersihan")
+            continue
+            
+        X = bank_df_clean[features].values
+        y = bank_df_clean[target].values
+        
+        # Penanganan nilai yang hilang
+        imputer = SimpleImputer(strategy='mean')
+        X = imputer.fit_transform(X)
         
         # Normalisasi fitur
         scaler = StandardScaler()
@@ -69,9 +88,9 @@ def train_and_predict_rf(df, features, target):
         y_pred = rf_model.predict(X_scaled)
         
         # Simpan hasil
-        bank_df['PredictedPrice'] = y_pred
-        bank_df['Error'] = bank_df[target] - bank_df['PredictedPrice']
-        results.append(bank_df)
+        bank_df_clean['PredictedPrice'] = y_pred
+        bank_df_clean['Error'] = bank_df_clean[target] - bank_df_clean['PredictedPrice']
+        results.append(bank_df_clean)
         
         # Simpan importance
         importances = pd.Series(rf_model.feature_importances_, index=features)
@@ -100,7 +119,7 @@ def train_and_predict_rf(df, features, target):
         
         # Analisis hipotesis berdasarkan feature importance
         st.subheader("Analisis Hipotesis Berdasarkan Feature Importance")
-        hypothesis_features = ['ROA', 'ROE', 'NIM', 'NPL', 'BOPO', 'CAR']
+        hypothesis_features = ['ROA', 'ROE', 'NIM', 'NPL', 'BOPO', 'CAR',]
         filtered_importance = avg_importance[avg_importance.index.isin(hypothesis_features)]
         
         if not filtered_importance.empty:
